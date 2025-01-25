@@ -9,6 +9,8 @@ import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
 
 public interface Constants {
+	String LOG_PREFIX = "[Aaron's Mod] ";
+
 	Supplier<ColourProfiles> PROFILE = () -> AaronModConfigManager.get().colourProfile;
 	Supplier<MutableText> PREFIX = () -> Text.empty()
 			.append(Text.literal("[").formatted(Formatting.GRAY))
