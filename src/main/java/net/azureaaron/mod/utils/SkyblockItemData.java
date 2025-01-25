@@ -1,6 +1,7 @@
 package net.azureaaron.mod.utils;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 import org.slf4j.Logger;
 
@@ -31,6 +32,11 @@ public class SkyblockItemData {
 		}).thenAcceptAsync(items -> {
 			Cache.populate(items);
 			NetworthDataSuppliers.updateSkyblockItemData(items);
+		}).whenComplete((_result, throwable) -> {
+			if (throwable != null) {
+				LOGGER.warn("[Aaron's Mod Skyblock Item Data Loader] Will retry to load data later");
+				Scheduler.schedule(SkyblockItemData::init, 10, TimeUnit.MINUTES);
+			}
 		});
 	}
 }

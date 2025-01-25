@@ -10,7 +10,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
+import net.azureaaron.mod.utils.exceptions.LoadDataException;
 import org.slf4j.Logger;
 
 import com.google.gson.JsonArray;
@@ -36,27 +38,53 @@ public class Skyblock {
 
 	private static final Map<String, MagicalPowerCommand.MagicalPowerData> MAGICAL_POWERS = new HashMap<>();
 	private static final Map<String, MagicalPowerCommand.Accessory> ACCESSORIES = new HashMap<>();
+
+	private static final int RETRY_TIME_MINUTES = 10;
 	
 	private static boolean loaded;
 	private static boolean enchantsLoaded;
 		
 	public static void init() {
-		ClientLifecycleEvents.CLIENT_STARTED.register(client -> CompletableFuture.allOf(loadRareLootItems(client), loadMaxEnchants(false), loadMagicalPowers(), loadAccessories())
-				.whenComplete((_result, _throwable) -> loaded = true));
+		ClientLifecycleEvents.CLIENT_STARTED.register(Skyblock::reloadData);
+	}
+
+	public static void reloadData(MinecraftClient client) {
+		if (!loaded) {
+			CompletableFuture.allOf(
+					loadRareLootItems(client),
+					loadMaxEnchants(false),
+					loadMagicalPowers(),
+					loadAccessories()
+			).whenComplete((result, throwable) -> {
+				if (throwable == null) {
+					LOGGER.info("[Aaron's Mod] Loaded all data");
+					loaded = true;
+				} else {
+					LOGGER.warn("[Aaron's Mod] Failed to load some data will retry later.");
+					// Something wasn't loaded so we retry it later
+					Scheduler.schedule(() -> reloadData(client), RETRY_TIME_MINUTES, TimeUnit.MINUTES);
+				}
+			});
+		}
 	}
 	
 	private static CompletableFuture<Void> loadRareLootItems(MinecraftClient client) {
+		if (!RARE_LOOT_ITEMS.isEmpty()) {
+			// Don't need to reload data from the file
+			return CompletableFuture.completedFuture(null);
+		}
 		return CompletableFuture.supplyAsync(() -> {
 			try (BufferedReader reader = client.getResourceManager().openAsReader(Identifier.of(Main.NAMESPACE, "skyblock/rare_loot_items.json"))) {
 				RegistryOps<JsonElement> ops = ItemUtils.getRegistryLookup().getOps(JsonOps.INSTANCE);
 
 				return RARE_LOOT_CODEC.parse(ops, JsonParser.parseReader(reader)).getOrThrow();
 			} catch (Exception e) {
-				LOGGER.error("[Aaron's Mod] Failed to load rare loot items file!", e);
-				
-				return Map.<String, ItemStack>of();
+				throw new LoadDataException("Failed to load rare loot items file", e);
 			}
-		}).thenAccept(RARE_LOOT_ITEMS::putAll);
+		}).thenAccept((result) -> {
+			RARE_LOOT_ITEMS.clear();
+			RARE_LOOT_ITEMS.putAll(result);
+		});
 	}
 
 	//Maybe load the enchants from file as backup?
@@ -69,12 +97,16 @@ public class Skyblock {
 						} catch (Exception e) {
 							LOGGER.error("[Aaron's Mod] Failed to load max enchantments file!", e);
 
-							return List.<String>of();
+							throw new LoadDataException("Failed to load max enchantments file!", e);
 						}
 					} else {
 						return List.<String>of();
 					}
-				}).thenAccept(MAX_LEVEL_ENCHANTMENTS::addAll)
+				})
+				.thenAccept((result) -> {
+					MAX_LEVEL_ENCHANTMENTS.clear();
+					MAX_LEVEL_ENCHANTMENTS.addAll(result);
+				})
 				.thenRun(() -> Functions.runIf(() -> enchantsLoaded = true, () -> !MAX_LEVEL_ENCHANTMENTS.isEmpty()));
 	}
 	
@@ -86,13 +118,16 @@ public class Skyblock {
 					return MagicalPowerCommand.MagicalPowerData.MAP_CODEC.parse(JsonOps.INSTANCE, JsonParser.parseString(response.content())).getOrThrow();
 				} catch (Exception e) {
 					LOGGER.error("[Aaron's Mod] Failed to load magical powers file!", e);
-					
-					return Map.<String, MagicalPowerCommand.MagicalPowerData>of();
+
+					throw new LoadDataException("Failed to load magical powers file!", e);
 				}
 			} else {
 				return Map.<String, MagicalPowerCommand.MagicalPowerData>of();
 			}
-		}).thenAccept(MAGICAL_POWERS::putAll);
+		}).thenAccept((result) -> {
+			MAGICAL_POWERS.clear();
+			MAGICAL_POWERS.putAll(result);
+		});
 	}
 	
 	private static CompletableFuture<Void> loadAccessories() {
@@ -103,13 +138,16 @@ public class Skyblock {
 					return MagicalPowerCommand.Accessory.MAP_CODEC.parse(JsonOps.INSTANCE, JsonParser.parseString(response.content())).getOrThrow();
 				} catch (Exception e) {
 					LOGGER.error("[Aaron's Mod] Failed to load accessories!", e);
-					
-					return Map.<String, MagicalPowerCommand.Accessory>of();
+
+					throw new LoadDataException("Failed to load accessories!", e);
 				}
 			} else {
 				return Map.<String, MagicalPowerCommand.Accessory>of();
 			}
-		}).thenAccept(ACCESSORIES::putAll);
+		}).thenAccept((result) -> {
+			ACCESSORIES.clear();
+			ACCESSORIES.putAll(result);
+		});
 	}
 	
 	public static Map<String, ItemStack> getRareLootItems() {
