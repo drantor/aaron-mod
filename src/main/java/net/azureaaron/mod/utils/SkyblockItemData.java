@@ -16,6 +16,8 @@ import net.azureaaron.mod.utils.networth.NetworthDataSuppliers;
 public class SkyblockItemData {
 	private static final Logger LOGGER = LogUtils.getLogger();
 
+	private static final int RETRY_TIME_MINUTES = 3;
+
 	public static void init() {
 		if (!AaronModConfigManager.get().enableSkyblockCommands) return;
 
@@ -35,7 +37,7 @@ public class SkyblockItemData {
 		}).whenComplete((_result, throwable) -> {
 			if (throwable != null) {
 				LOGGER.warn("[Aaron's Mod Skyblock Item Data Loader] Will retry to load data later");
-				Scheduler.schedule(SkyblockItemData::init, 10, TimeUnit.MINUTES);
+				Scheduler.schedule(SkyblockItemData::init, RETRY_TIME_MINUTES, TimeUnit.MINUTES);
 			}
 		});
 	}

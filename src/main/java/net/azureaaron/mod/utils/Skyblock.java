@@ -37,7 +37,7 @@ public class Skyblock {
     private static final Map<String, MagicalPowerCommand.MagicalPowerData> MAGICAL_POWERS = new HashMap<>();
     private static final Map<String, MagicalPowerCommand.Accessory> ACCESSORIES = new HashMap<>();
 
-    private static final int RETRY_TIME_MINUTES = 10;
+    private static final int RETRY_TIME_MINUTES = 3;
 
     private static boolean loaded;
     private static boolean enchantsLoaded;
