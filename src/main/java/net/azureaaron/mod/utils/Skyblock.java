@@ -60,6 +60,9 @@ public class Skyblock {
                 // Reset flag if we force a reload
                 loaded = false;
                 enchantsLoaded = false;
+                MAX_LEVEL_ENCHANTMENTS.clear();
+                MAGICAL_POWERS.clear();
+                ACCESSORIES.clear();
             }
             CompletableFuture.allOf(
                     loadRareLootItems(client),
